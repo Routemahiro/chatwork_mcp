@@ -39,7 +39,6 @@ class Account(Dict):
     avatar_image_url: str
 
 class Message(Dict):
-    message_id: str
     account: Account
     body: str
     send_time: int
@@ -230,12 +229,12 @@ async def get_room_messages(room_id: int, save_dir_path: str, force: int = 0) ->
             raise RuntimeError(f"ネットワークエラー: {str(e)}")
 
 @mcp.tool()
-async def get_room_message(room_id: int, message_id: str) -> Message:
+async def get_room_message(room_id: int, message_id: int) -> Message:
     """チャットの特定のメッセージを取得します
     
     Args:
         room_id (int): チャットルームのID
-        message_id (str): 取得するメッセージのID
+        message_id (int): 取得するメッセージのID
         
     Returns:
         Message: メッセージ情報
@@ -519,6 +518,64 @@ async def put_room_task_status(room_id: int, task_id: int, status: str = "done")
                     raise RuntimeError("このタスクにアクセスする権限がありません")
                 if response.status == 404:
                     raise RuntimeError("指定されたチャットルームまたはタスクが見つかりません")
+                if response.status == 429:
+                    raise RuntimeError("APIリクエスト制限を超過しました（5分あたり300リクエスト）")
+                if not response.ok:
+                    error_body = await response.text()
+                    raise RuntimeError(f"APIエラー: ステータスコード {response.status}, 詳細: {error_body}")
+                
+                return await response.json()
+        except aiohttp.ClientError as e:
+            raise RuntimeError(f"ネットワークエラー: {str(e)}")
+
+@mcp.tool()
+async def post_room_messages(room_id: int, body: str, self_unread: int = 0) -> Message:
+    """チャットにメッセージを投稿します
+    
+    Args:
+        room_id (int): チャットルームのID
+        body (str): メッセージの本文
+        self_unread (int, optional): 投稿したメッセージを自分の未読にするか（0: しない, 1: する）。デフォルトは0
+        
+    Returns:
+        Message: 投稿されたメッセージ情報
+        
+    Raises:
+        ValueError: APIトークンが未設定、または無効な場合、またはbodyが空の場合
+        RuntimeError: APIリクエスト制限超過時やその他のエラー発生時
+    """
+    if not CHATWORK_API_TOKEN:
+        raise ValueError("ChatWork APIトークンが設定されていません。環境変数 CHATWORK_API_TOKEN を設定してください。")
+
+    if not body:
+        raise ValueError("メッセージの本文（body）は必須です")
+
+    # パラメータの準備
+    params = {
+        "body": body,
+        "self_unread": str(self_unread)
+    }
+
+    async with aiohttp.ClientSession() as session:
+        headers = {
+            "X-ChatWorkToken": CHATWORK_API_TOKEN,
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        try:
+            async with session.post(
+                f"https://api.chatwork.com/v2/rooms/{room_id}/messages",
+                headers=headers,
+                data=params
+            ) as response:
+                if response.status == 400:
+                    error_body = await response.text()
+                    raise RuntimeError(f"リクエストが不正です: {error_body}")
+                if response.status == 401:
+                    raise ValueError("APIトークンが無効です")
+                if response.status == 403:
+                    raise RuntimeError("このチャットルームにアクセスする権限がありません")
+                if response.status == 404:
+                    raise RuntimeError("指定されたチャットルームが見つかりません")
                 if response.status == 429:
                     raise RuntimeError("APIリクエスト制限を超過しました（5分あたり300リクエスト）")
                 if not response.ok:
