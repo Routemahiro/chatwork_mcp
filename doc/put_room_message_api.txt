@@ -1,0 +1,88 @@
+# PUT /rooms/{room_id}/messages/{message_id}
+
+## 基本情報
+- エンドポイント: `https://api.chatwork.com/v2/rooms/{room_id}/messages/{message_id}`
+- メソッド: PUT
+- 説明: チャットのメッセージを更新します
+
+## URLパラメータ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| room_id | 整数 | 必須 | チャットルームのID |
+| message_id | 文字列 | 必須 | 更新するメッセージのID |
+
+## リクエストヘッダ
+```
+X-ChatWorkToken: <APIトークン>
+```
+
+## リクエストボディ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| body | 文字列 | 必須 | 更新するメッセージ本文 |
+
+## レスポンス
+### 成功時のステータスコード
+- 200: 成功
+
+### レスポンスボディ
+```typescript
+interface Message {
+  message_id: string;       // メッセージID
+  account: {
+    account_id: number;     // 投稿者のアカウントID
+    name: string;          // 投稿者の名前
+    avatar_image_url: string; // 投稿者のアバター画像URL
+  };
+  body: string;            // メッセージ本文
+  send_time: number;       // 送信時間（UNIXタイムスタンプ）
+  update_time: number;     // 更新時間（UNIXタイムスタンプ）
+}
+```
+
+## エラーレスポンス
+| ステータスコード | 説明 |
+|-----------------|------|
+| 401 | 認証エラー（APIトークンが無効） |
+| 403 | アクセス権限エラー（他人のメッセージは更新不可） |
+| 404 | チャットルームまたはメッセージが見つからない |
+| 429 | リクエスト制限超過（5分あたり300リクエスト） |
+
+## Node.jsでの実装例
+```typescript
+async function updateMessage(apiToken: string, roomId: number, messageId: string, body: string) {
+  try {
+    const response = await fetch(
+      `https://api.chatwork.com/v2/rooms/${roomId}/messages/${messageId}`,
+      {
+        method: 'PUT',
+        headers: {
+          'X-ChatWorkToken': apiToken,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          body: body
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const message = await response.json();
+    return message;
+  } catch (error) {
+    console.error('メッセージ更新エラー:', error);
+    throw error;
+  }
+}
+```
+
+## 使用上の注意点
+1. APIトークンは必ず秘密に保管し、環境変数などで管理してください
+2. リクエスト制限（5分あたり300リクエスト）に注意してください
+3. エラーハンドリングを適切に実装してください
+4. 自分が投稿したメッセージのみ更新可能です
+5. Content-Typeは必ず`application/x-www-form-urlencoded`を指定してください
+6. メッセージ本文は必須パラメータです 

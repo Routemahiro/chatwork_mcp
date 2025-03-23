@@ -1,0 +1,103 @@
+# GET /rooms/{room_id}/tasks
+
+## 基本情報
+- エンドポイント: `https://api.chatwork.com/v2/rooms/{room_id}/tasks`
+- メソッド: GET
+- 説明: チャットのタスク一覧を取得します
+
+## URLパラメータ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| room_id | 整数 | 必須 | チャットルームのID |
+
+## リクエストヘッダ
+```
+X-ChatWorkToken: <APIトークン>
+```
+
+## クエリパラメータ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| account_id | 整数 | 任意 | タスクの担当者のアカウントID |
+| assigned_by_account_id | 整数 | 任意 | タスクの依頼者のアカウントID |
+| status | 文字列 | 任意 | タスクのステータス（`open` または `done`） |
+
+## レスポンス
+### 成功時のステータスコード
+- 200: 成功
+
+### レスポンスボディ
+タスクオブジェクトの配列が返されます：
+
+```typescript
+interface Task {
+  task_id: number;          // タスクID
+  account: {
+    account_id: number;     // 担当者のアカウントID
+    name: string;          // 担当者の名前
+    avatar_image_url: string; // 担当者のアバター画像URL
+  };
+  assigned_by_account: {
+    account_id: number;     // タスク作成者のアカウントID
+    name: string;          // タスク作成者の名前
+    avatar_image_url: string; // タスク作成者のアバター画像URL
+  };
+  message_id: string;       // タスクが含まれるメッセージID
+  body: string;            // タスクの本文
+  limit_time: number;      // タスクの期限（UNIXタイムスタンプ）
+  status: "open" | "done"; // タスクのステータス
+  limit_type: string;      // 期限の種類（"date" または "time"）
+}
+```
+
+## エラーレスポンス
+| ステータスコード | 説明 |
+|-----------------|------|
+| 401 | 認証エラー（APIトークンが無効） |
+| 403 | アクセス権限エラー |
+| 404 | チャットルームが見つからない |
+| 429 | リクエスト制限超過（5分あたり300リクエスト） |
+
+## Node.jsでの実装例
+```typescript
+async function getRoomTasks(
+  apiToken: string,
+  roomId: number,
+  accountId?: number,
+  assignedByAccountId?: number,
+  status?: 'open' | 'done'
+) {
+  try {
+    const params = new URLSearchParams();
+    if (accountId) params.append('account_id', accountId.toString());
+    if (assignedByAccountId) params.append('assigned_by_account_id', assignedByAccountId.toString());
+    if (status) params.append('status', status);
+
+    const url = `https://api.chatwork.com/v2/rooms/${roomId}/tasks${params.toString() ? '?' + params.toString() : ''}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-ChatWorkToken': apiToken
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const tasks = await response.json();
+    return tasks;
+  } catch (error) {
+    console.error('タスク一覧取得エラー:', error);
+    throw error;
+  }
+}
+```
+
+## 使用上の注意点
+1. APIトークンは必ず秘密に保管し、環境変数などで管理してください
+2. リクエスト制限（5分あたり300リクエスト）に注意してください
+3. エラーハンドリングを適切に実装してください
+4. レスポンスのタイムスタンプはUNIX時間形式です
+5. クエリパラメータを組み合わせて柔軟な検索が可能です 

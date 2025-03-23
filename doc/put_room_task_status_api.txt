@@ -1,0 +1,102 @@
+# PUT /rooms/{room_id}/tasks/{task_id}/status
+
+## 基本情報
+- エンドポイント: `https://api.chatwork.com/v2/rooms/{room_id}/tasks/{task_id}/status`
+- メソッド: PUT
+- 説明: タスクのステータスを変更します
+
+## URLパラメータ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| room_id | 整数 | 必須 | チャットルームのID |
+| task_id | 整数 | 必須 | タスクのID |
+
+## リクエストヘッダ
+```
+X-ChatWorkToken: <APIトークン>
+Content-Type: application/x-www-form-urlencoded
+```
+
+## リクエストボディ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| body | 文字列 | 必須 | タスクのステータス（`open` または `done`） |
+
+## レスポンス
+### 成功時のステータスコード
+- 200: 成功
+
+### レスポンスボディ
+```typescript
+interface Task {
+  task_id: number;          // タスクID
+  account: {
+    account_id: number;     // 担当者のアカウントID
+    name: string;          // 担当者の名前
+    avatar_image_url: string; // 担当者のアバター画像URL
+  };
+  assigned_by_account: {
+    account_id: number;     // タスク作成者のアカウントID
+    name: string;          // タスク作成者の名前
+    avatar_image_url: string; // タスク作成者のアバター画像URL
+  };
+  message_id: string;       // タスクが含まれるメッセージID
+  body: string;            // タスクの本文
+  limit_time: number;      // タスクの期限（UNIXタイムスタンプ）
+  status: "open" | "done"; // タスクのステータス
+  limit_type: string;      // 期限の種類（"date" または "time"）
+}
+```
+
+## エラーレスポンス
+| ステータスコード | 説明 |
+|-----------------|------|
+| 400 | リクエストパラメータが不正 |
+| 401 | 認証エラー（APIトークンが無効） |
+| 403 | アクセス権限エラー（他人のタスクは更新不可） |
+| 404 | チャットルームまたはタスクが見つからない |
+| 429 | リクエスト制限超過（5分あたり300リクエスト） |
+
+## Node.jsでの実装例
+```typescript
+async function updateTaskStatus(
+  apiToken: string,
+  roomId: number,
+  taskId: number,
+  status: 'open' | 'done'
+) {
+  try {
+    const response = await fetch(
+      `https://api.chatwork.com/v2/rooms/${roomId}/tasks/${taskId}/status`,
+      {
+        method: 'PUT',
+        headers: {
+          'X-ChatWorkToken': apiToken,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          body: status
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const task = await response.json();
+    return task;
+  } catch (error) {
+    console.error('タスクステータス更新エラー:', error);
+    throw error;
+  }
+}
+```
+
+## 使用上の注意点
+1. APIトークンは必ず秘密に保管し、環境変数などで管理してください
+2. リクエスト制限（5分あたり300リクエスト）に注意してください
+3. エラーハンドリングを適切に実装してください
+4. 自分が担当者になっているタスクのみ更新可能です
+5. Content-Typeは必ず`application/x-www-form-urlencoded`を指定してください
+6. ステータスは`open`または`done`のみ指定可能です 

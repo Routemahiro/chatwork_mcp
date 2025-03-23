@@ -1,0 +1,75 @@
+# GET /rooms
+
+## 基本情報
+- エンドポイント: `https://api.chatwork.com/v2/rooms`
+- メソッド: GET
+- 説明: チャット一覧を取得します
+
+## リクエストヘッダ
+```
+X-ChatWorkToken: <APIトークン>
+```
+
+## レスポンス
+### 成功時のステータスコード
+- 200: 成功
+
+### レスポンスボディ
+ルームオブジェクトの配列が返されます：
+
+```typescript
+interface Room {
+  room_id: number;           // チャットルームID
+  name: string;              // チャット名
+  type: string;              // チャット種別（my, direct, group）
+  role: string;              // 自分の役割（admin, member, readonly）
+  sticky: boolean;           // ピン留めされているか
+  unread_num: number;        // 未読メッセージ数
+  mention_num: number;       // メンションされた数
+  mytask_num: number;        // 自分のタスクの数
+  message_num: number;       // メッセージ総数
+  file_num: number;          // ファイル数
+  task_num: number;          // タスク数
+  icon_path: string;         // アイコンのパス
+  last_update_time: number;  // 最終更新時間
+}
+```
+
+## エラーレスポンス
+| ステータスコード | 説明 |
+|-----------------|------|
+| 401 | 認証エラー（APIトークンが無効） |
+| 429 | リクエスト制限超過（5分あたり300リクエスト） |
+
+## Node.jsでの実装例
+```typescript
+async function getRooms(apiToken: string) {
+  try {
+    const response = await fetch(
+      'https://api.chatwork.com/v2/rooms',
+      {
+        method: 'GET',
+        headers: {
+          'X-ChatWorkToken': apiToken
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const rooms = await response.json();
+    return rooms;
+  } catch (error) {
+    console.error('ルーム一覧取得エラー:', error);
+    throw error;
+  }
+}
+```
+
+## 使用上の注意点
+1. APIトークンは必ず秘密に保管し、環境変数などで管理してください
+2. リクエスト制限（5分あたり300リクエスト）に注意してください
+3. エラーハンドリングを適切に実装してください
+4. レスポンスのタイムスタンプはUNIX時間形式です 

@@ -1,0 +1,84 @@
+# GET /rooms/{room_id}/messages
+
+## 基本情報
+- エンドポイント: `https://api.chatwork.com/v2/rooms/{room_id}/messages`
+- メソッド: GET
+- 説明: チャットのメッセージ一覧を取得します
+
+## URLパラメータ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| room_id | 整数 | 必須 | チャットルームのID |
+
+## リクエストヘッダ
+```
+X-ChatWorkToken: <APIトークン>
+```
+
+## クエリパラメータ
+| パラメータ | 型 | 必須 | 説明 |
+|------------|----|----|------|
+| force | 整数 | 任意 | 前回取得分からの差分を取得するか（1: 差分を取得しない, 0: 差分のみ取得） |
+
+## レスポンス
+### 成功時のステータスコード
+- 200: 成功
+
+### レスポンスボディ
+メッセージオブジェクトの配列が返されます：
+
+```typescript
+interface Message {
+  message_id: string;       // メッセージID
+  account: {
+    account_id: number;     // 投稿者のアカウントID
+    name: string;          // 投稿者の名前
+    avatar_image_url: string; // 投稿者のアバター画像URL
+  };
+  body: string;            // メッセージ本文
+  send_time: number;       // 送信時間（UNIXタイムスタンプ）
+  update_time: number;     // 更新時間（UNIXタイムスタンプ）
+}
+```
+
+## エラーレスポンス
+| ステータスコード | 説明 |
+|-----------------|------|
+| 401 | 認証エラー（APIトークンが無効） |
+| 403 | アクセス権限エラー |
+| 404 | チャットルームが見つからない |
+| 429 | リクエスト制限超過（5分あたり300リクエスト） |
+
+## Node.jsでの実装例
+```typescript
+async function getRoomMessages(apiToken: string, roomId: number, force: number = 0) {
+  try {
+    const response = await fetch(
+      `https://api.chatwork.com/v2/rooms/${roomId}/messages?force=${force}`,
+      {
+        method: 'GET',
+        headers: {
+          'X-ChatWorkToken': apiToken
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const messages = await response.json();
+    return messages;
+  } catch (error) {
+    console.error('メッセージ取得エラー:', error);
+    throw error;
+  }
+}
+```
+
+## 使用上の注意点
+1. APIトークンは必ず秘密に保管し、環境変数などで管理してください
+2. リクエスト制限（5分あたり300リクエスト）に注意してください
+3. エラーハンドリングを適切に実装してください
+4. レスポンスのタイムスタンプはUNIX時間形式です
+5. forceパラメータを使用して不要な通信を減らすことを推奨します 
